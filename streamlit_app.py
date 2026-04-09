@@ -31,7 +31,7 @@ TEMPLATE_BYTES:  bytes = TEMPLATE_PATH.read_bytes()
 EXPECTED_SNS           = extract_expected_sns(str(TEMPLATE_PATH))
 
 # ── API constants ─────────────────────────────────────────────────────────────
-MODEL           = "claude-opus-4-5"
+MODEL           = "claude-opus-4-6"
 MAX_TOKENS      = 8000
 THINKING_TOKENS = 5000
 TIMEOUT_SECS    = 180
@@ -284,7 +284,8 @@ def _extract_submission_metadata(pdf_bytes: bytes) -> dict:
         )
         raw = response.content[0].text.strip()
         return json.loads(_strip_fences(raw))
-    except Exception:
+    except Exception as e:
+        logging.warning("Metadata extraction failed: %s", e)
         return {}
 
 
