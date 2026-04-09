@@ -69,7 +69,7 @@ except FileNotFoundError:
     raise
 
 # ── API constants ─────────────────────────────────────────────────────────────
-MODEL          = "claude-opus-4-5"
+MODEL          = "claude-sonnet-4-6"
 MAX_TOKENS     = 8000
 THINKING_TOKENS = 5000
 TIMEOUT_SECS   = 180
