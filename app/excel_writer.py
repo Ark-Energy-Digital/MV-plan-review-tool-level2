@@ -89,8 +89,99 @@ def _is_section_header(value) -> bool:
         return False  # unparseable as float → multi-part SN like "6.3.1", treat as question row
 
 
+def _build_regression_comment(regression_results: list) -> str:
+    """
+    Build a natural-language paragraph appended to SN 6.3.6 stating the
+    Python-computed regression values, whether they match reported stats,
+    and whether they meet IPMVP/ASHRAE Guideline 14 thresholds.
+    """
+    if not regression_results:
+        return ""
+
+    blocks = []
+    for res in regression_results:
+        name = res.get("eem_name", "Unknown EEM")
+
+        if res.get("error"):
+            blocks.append(
+                f"Independent Python regression verification ({name}) could not be completed: {res['error']}."
+            )
+            continue
+
+        c          = res.get("computed") or {}
+        thresholds = res.get("thresholds") or {}
+        comparison = res.get("comparison") or {}
+
+        r2        = c.get("r_squared", 0)
+        cvrmse    = c.get("cv_rmse", 0)
+        nmbe      = c.get("nmbe", 0)
+        t_stat    = c.get("t_stat", 0)
+        p_val     = c.get("p_value", 0)
+        it        = c.get("intercept_t_stat")
+        ip        = c.get("intercept_p_value")
+        intercept = c.get("intercept", 0)
+        slope     = c.get("slope", 0)
+        mse       = c.get("model_std_err", 0)
+        n         = c.get("n", 0)
+
+        p_str  = "< 0.001" if p_val < 0.001 else f"= {p_val:.3f}"
+        ip_str = ("< 0.001" if ip < 0.001 else f"= {ip:.4f}") if ip is not None else "N/A"
+        it_str = f"{it:.4f}" if it is not None else "N/A"
+
+        # ── Threshold split ───────────────────────────────────────────────────
+        failing = [k for k, v in thresholds.items() if not v.get("passes")]
+        passing = [k for k, v in thresholds.items() if v.get("passes")]
+
+        # ── Match sentence ────────────────────────────────────────────────────
+        has_reported = any(v.get("reported") is not None for v in comparison.values())
+        if has_reported:
+            mismatches = res.get("stats_mismatch", [])
+            match_clause = (
+                "consistent with those reported in the M&V Plan"
+                if not mismatches else
+                f"differing from the M&V Plan on: {', '.join(mismatches)}"
+            )
+        else:
+            match_clause = "no reported statistics were available for direct comparison"
+
+        # ── Threshold clause ──────────────────────────────────────────────────
+        if not failing:
+            threshold_clause = "all meet IPMVP/ASHRAE Guideline 14 thresholds."
+        else:
+            pass_part = f"{', '.join(passing)} {'meet' if len(passing) > 1 else 'meets'} the required thresholds" if passing else ""
+            fail_part = f"{', '.join(failing)} {'do' if len(failing) > 1 else 'does'} not meet the required threshold"
+            threshold_clause = f"{pass_part + '; ' if pass_part else ''}{fail_part}."
+
+        # ── Mismatch detail sentence (only when reported stats exist) ──────────
+        mismatch_detail = ""
+        if has_reported and res.get("stats_mismatch"):
+            details = []
+            for metric in res["stats_mismatch"]:
+                rep = comparison[metric].get("reported")
+                comp = comparison[metric].get("computed")
+                if rep is not None and comp is not None:
+                    details.append(f"{metric}: reported {rep:.4g}, computed {comp:.4g}")
+            if details:
+                mismatch_detail = f" Discrepancies: {'; '.join(details)}."
+
+        # ── Assemble paragraph ────────────────────────────────────────────────
+        para = (
+            f"[{name}] Independent Python verification (n = {n}) yields: "
+            f"R² = {r2:.4f}, CV(RMSE) = {cvrmse:.2f}%, NMBE = {nmbe:.2f}%, "
+            f"slope t-statistic = {t_stat:.4f} (p {p_str}), "
+            f"Model Standard Error = {mse:,.2f}, intercept = {intercept:,.2f}, slope = {slope:.6f}. "
+            f"These values are {match_clause}.{mismatch_detail} {threshold_clause}"
+        )
+
+        blocks.append(para)
+
+    return "\n\n" + "\n\n".join(blocks)
+
+
 def write_review(template_bytes: bytes, review_by_sn: dict,
-                 ref_no: str = "", esp_name: str = "", facility_name: str = "") -> bytes:
+                 ref_no: str = "", client_name: str = "", esp_name: str = "",
+                 facility_name: str = "", regression_results: list = None,
+                 regression_data_provided: bool = False) -> bytes:
     """
     Load the Excel template from bytes, write review results, return as bytes.
 
@@ -147,14 +238,26 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
     if ref_no:
         ws.cell(row=7, column=3).value = ref_no
 
+    # ── ESP Name (row 10, col D) and Ref. No. (row 11, col D) ───────────────
+    if esp_name:
+        ws.cell(row=10, column=4).value = esp_name
+    if ref_no:
+        ws.cell(row=11, column=4).value = ref_no
+
     # ── Cover Page ────────────────────────────────────────────────────────────
     if "Cover Page" in wb.sheetnames:
         cp = wb["Cover Page"]
+        # Client name (row 10, col A)
+        if client_name:
+            cp.cell(row=10, column=1).value = client_name
+        # Project name (row 11, col A)
+        if facility_name:
+            cp.cell(row=11, column=1).value = f'Energy Efficiency Retrofit Project for "{facility_name}"'
         # Date (row 12, col B)
         cp.cell(row=12, column=2).value = today_str
-        # ESP name (row 13, col C)
+        # ESP name (row 13, col B)
         if esp_name:
-            cp.cell(row=13, column=3).value = esp_name
+            cp.cell(row=13, column=2).value = esp_name
         # Date of Last Status (row 16, col F)
         cp.cell(row=16, column=6).value = today_str
 
@@ -163,8 +266,18 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         cell = ws.cell(row=15, column=col)
         cell.value = today_str
 
+    # If any EEM's computed regression stats differ from those reported in the
+    # M&V plan, SN 6.3.6 must be "Not Approved" regardless of the AI verdict.
+    regression_mismatch = any(
+        res.get("stats_mismatch") for res in (regression_results or [])
+    )
+
     # Round 1 Assessment (col F=6): Approved only if every question is Approved
-    all_approved = all(item.get("status") == "Approved" for item in review_by_sn.values())
+    # and no regression mismatch was detected.
+    all_approved = (
+        all(item.get("status") == "Approved" for item in review_by_sn.values())
+        and not regression_mismatch
+    )
     assessment = "Approved" if all_approved else "Not Approved"
     assess_s = STATUS_STYLES[assessment]
     _style_cell(
@@ -172,6 +285,9 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         assessment, bg=assess_s["bg"], fc=assess_s["fc"],
         bold=True, align="center"
     )
+
+    # Build regression verification text once — appended to SN 6.3.6 comment
+    regression_block = _build_regression_comment(regression_results or [])
 
     for row_idx in range(DATA_START, ws.max_row + 1):
         sn_val = ws.cell(row=row_idx, column=COL_SN).value
@@ -186,6 +302,21 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         included = item.get("included", "")
         status   = item.get("status", "")
         comment  = item.get("comment", "") or ""
+
+        # If computed regression stats differ from reported, force Not Approved
+        if sn == "6.3.6" and regression_mismatch:
+            status = "Not Approved"
+
+        # Append Python regression verification to the 6.3.6 comment
+        if sn == "6.3.6":
+            if regression_block:
+                comment = (comment + regression_block).strip()
+            elif included in ("Yes", "Partial") and not regression_data_provided:
+                not_provided = (
+                    "\n\nRegression data was not provided; independent Python "
+                    "verification of the reported regression statistics could not be performed."
+                )
+                comment = (comment + not_provided).strip()
 
         # ── Included (col H) ────────────────────────────────────────────────
         inc_s = INCLUDED_STYLES.get(included, {"bg": "FFFFFF", "fc": "000000"})
