@@ -92,6 +92,10 @@ SECTION 1 — CALCULATION SHEET: MAIN TABLE
 SECTION 2 — REGRESSION MODEL
 2.1  Did the ESP include a separate sheet for the regression model as per the M&V Plan
      (applicable where the regression model is used as the routine adjustment model)?
+     APPROVAL RULE: Status = APP only if the regression model is presented on its own
+     dedicated sheet — distinct from the introductory sheet and the main calculation sheet.
+     If regression content exists but is embedded within another sheet (e.g. the main
+     calculation sheet), status = IR. If no regression content is found at all, status = NA.
 
 SECTION 3 — METERED DATA
 3.1  Did the ESP include a sample sheet of the extracted 15-minute interval data used
@@ -106,7 +110,7 @@ SECTION 4 — ROUTINE ADJUSTMENT OF SAVINGS
 
 SECTION 5 — NON-ROUTINE ADJUSTMENT OF SAVINGS
 5.1  Did the ESP provide a sample sheet for the non-routine adjustments?
-5.2  Did the ESP include a sample sheet listing all non-routine events?
+5.2  Did the ESP include a sample sheet listing all non-routine events (operational incident log sheet)?
 
 SECTION 6 — UNCERTAINTY TESTS
 6.1  Did the ESP include a separate sheet to quantify any uncertainty issues?
@@ -128,9 +132,8 @@ SECTION 1 — OVERVIEW OF M&V REPORT
 1.1  Did the ESP include, at a minimum, the report's issue date, author and reviewer,
      reference to the relevant M&V Plan, key parties involved, individuals engaged in
      reporting period activities, and quality assurance procedures and actions taken?
-1.2  Did the ESP include a summary of guaranteed/target savings as defined in the
-     approved M&V Plan, a sample of energy savings achieved versus target savings,
-     and a signature space (ESP, Consultant, and Client)?
+1.2  Did the ESP include a summary of guaranteed/target savings at the beginning of the M&V report  as defined in the approved M&V Plan, a sample of energy savings achieved versus target savings, and a signature space (ESP, Consultant, and Client)?
+     APPROVAL RULE: Approve if the section/template area for target savings summary and signature space is present in the report structure. Do NOT require actual data, values, or signatures to be filled in — check for the presence of the section or placeholder only.
 
 SECTION 2 — PROJECT BACKGROUND
 2.1  Did the ESP include a project overview, facility description, M&V option,
@@ -142,6 +145,7 @@ SECTION 3 — M&V DATA COLLECTION ACTIVITIES CONDUCTED DURING THE CURRENT REPORT
      details of operational verification activities conducted (if not yet reported)?
 3.2  Did the ESP include the key parameters collected during the reporting period
      (utility bills, 15-minute interval data, non-routine events)?
+     APPROVAL RULE: Approve if the section or table for key parameters is present. Do NOT require actual data to be populated — check for the presence of the section or column headers only.
 
 SECTION 4 — BASELINE AND VARIABLES
 4.1  Did the ESP include, at a minimum, the Baseline Period (start and end dates,
@@ -162,13 +166,16 @@ SECTION 7 — SAVINGS CALCULATIONS AND METHODOLOGY (INCLUDING ADJUSTMENTS, IF AN
      any baseline or savings adjustments — including routine and non-routine adjustments
      to account for any changes? Previous non-routine adjustments shall be included if
      they impact reported savings.
+     APPROVAL RULE: Approve if the section for assumptions and data sources is present. Do NOT require actual data or values to be filled in — check for the presence of the section or its headers only.
 
 SECTION 8 — VERIFIED SAVINGS
 8.1  Did the ESP include, at a minimum, a clear presentation of all energy consumption
      and cost savings with a comparison to the forecasted/target savings, sources of
      uncertainty (if any), and details of the values used to calculate the reported
      savings and their sources?
+     APPROVAL RULE: Approve if the savings presentation table or section is present. Do NOT require actual data to be filled in — check for the presence of the table or section only. However, if sources of uncertainty are not mentioned anywhere in the report, flag this in the comment.
 8.2  Did the ESP include a summary of non-routine adjustments (NRAs) with monthly values?
+     APPROVAL RULE: Approve if the NRA summary table or section is present. Do NOT require actual data or monthly values to be populated — check for the presence of the table or section only.
 
 ----------------------------------------
 OUTPUT FORMAT
@@ -204,10 +211,10 @@ Each key contains a JSON array of review entries for that sheet.
 
 RULES FOR JSON OUTPUT:
 - Return ONLY the JSON object. No markdown, no explanation, no text outside it.
-- "sheet2" must contain one entry for every SN in Sheet 2:
-  0.1, 1.1, 2.1, 3.1, 3.2, 4.1, 5.1, 5.2, 6.1
-- "sheet3" must contain one entry for every SN in Sheet 3:
+- CRITICAL — COMPLETENESS: A response that omits any SN is INVALID. NEVER skip a question.
+- "sheet3" must contain one entry for EVERY SN in Sheet 3 — exactly 12 entries:
   0.1, 1.1, 1.2, 2.1, 3.1, 3.2, 4.1, 5.1, 6.1, 7.1, 8.1, 8.2
+  If a question cannot be assessed, still include it with status = "IR" and a comment.
 - Do NOT include section header SNs (0, 1, 2, 3, 4, 5, 6, 7, 8) — questions only.
 - "included" : exactly one of: "Yes" / "No" / "Partial"
 - "status"   : exactly one of: "APP" / "IR" / "NA"

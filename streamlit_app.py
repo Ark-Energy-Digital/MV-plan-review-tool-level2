@@ -38,14 +38,14 @@ EXPECTED_SNS_SHEET3       = extract_expected_sns_for_sheet(str(TEMPLATE_PATH), "
 
 # ── API constants ─────────────────────────────────────────────────────────────
 MODEL           = "claude-sonnet-4-6"
-MAX_TOKENS      = 8000
+MAX_TOKENS      = 16000
 THINKING_TOKENS = 5000
 TIMEOUT_SECS    = 180
 MAX_PDF_PAGES   = 100
 MAX_SUPPORTING_TEXT_CHARS = 400_000
 
 VALID_INCLUDED      = {"Yes", "No", "Partial"}
-VALID_STATUS        = {"Approved", "Not Approved", "Incomplete"}
+VALID_STATUS        = {"APP", "AAN", "NA", "IR"}
 VALID_CALC_STATUS   = {"APP", "IR", "NA"}
 
 logging.basicConfig(level=logging.INFO)
@@ -136,6 +136,24 @@ def _add_pdf_to_content(content: list, pdf_bytes: bytes, label: str) -> None:
             "text": f"=== {label} ({pages} pages — full text extracted) ===\n\n{extracted}",
         })
 
+def _fill_missing_sns(review_by_sn: dict, expected_sns: list,
+                      default_status: str = "IR") -> list:
+    """
+    Return a sorted list of SNs that were not answered, and fill them in-place
+    in review_by_sn with a standard IR placeholder so the Excel is always complete.
+    """
+    missing = sorted(set(expected_sns) - set(review_by_sn.keys()))
+    for sn in missing:
+        review_by_sn[sn] = {
+            "sn":       sn,
+            "included": "No",
+            "status":   default_status,
+            "comment":  "This question was not returned by the AI review. Manual assessment required.",
+        }
+        logging.warning("Auto-filled missing SN %s with %s.", sn, default_status)
+    return missing
+
+
 def _add_supporting_to_content(content: list, pdf_bytes: bytes, label: str) -> None:
     pages = _pdf_page_count(pdf_bytes)
     extracted = _pdf_to_text(pdf_bytes, label, max_chars=MAX_SUPPORTING_TEXT_CHARS)
@@ -181,8 +199,8 @@ def _call_claude_retry(client, user_content: list, first_raw: str) -> str:
         {"role": "user",      "content": (
             "Your previous response was invalid. Return ONLY a JSON array. "
             "Each item: sn (string), included (Yes/No/Partial), "
-            "status (Approved/Not Approved/Incomplete — not Approved as Noted), "
-            "comment (string, empty if Approved). Nothing else."
+            "status (APP/NA/IR — do not use AAN in Round 1), "
+            "comment (string, empty if APP). Nothing else."
         )},
     ]
     response = client.messages.create(
@@ -317,12 +335,12 @@ def run_mv_review(mv_bytes, supporting_bytes, ref_no, client_name, esp_name, mv_
             )
 
     review_by_sn = {str(item["sn"]).strip(): item for item in items}
-    missing_sns  = sorted(set(EXPECTED_SNS) - set(review_by_sn.keys()))
+    missing_sns  = _fill_missing_sns(review_by_sn, EXPECTED_SNS)
 
-    approved     = sum(1 for it in items if it.get("status") == "Approved")
-    not_approved = sum(1 for it in items if it.get("status") == "Not Approved")
-    incomplete   = sum(1 for it in items if it.get("status") == "Incomplete")
-    total        = len(items)
+    approved     = sum(1 for it in review_by_sn.values() if it.get("status") in ("APP", "AAN"))
+    not_approved = sum(1 for it in review_by_sn.values() if it.get("status") == "NA")
+    incomplete   = sum(1 for it in review_by_sn.values() if it.get("status") == "IR")
+    total        = len(review_by_sn)
 
     # ── Python regression verification ────────────────────────────────────────
     # Extract reported stats from AI's SN 6.3.6 entry (if AI found a regression table)
@@ -385,9 +403,10 @@ def run_mv_review(mv_bytes, supporting_bytes, ref_no, client_name, esp_name, mv_
             if calc_obj:
                 sheet3_items = calc_obj.get("sheet3", [])
                 calc_review_sheet3 = {str(it["sn"]).strip(): it for it in sheet3_items}
-                missing_sns_sheet3 = sorted(set(EXPECTED_SNS_SHEET3) - set(calc_review_sheet3))
+                missing_sns_sheet3 = _fill_missing_sns(calc_review_sheet3, EXPECTED_SNS_SHEET3)
 
         sheet2_items = list(calc_review_sheet2.values())
+        sheet3_all   = list(calc_review_sheet3.values())
         calc_stats = {
             "sheet2": {
                 "total":   len(sheet2_items),
@@ -396,10 +415,10 @@ def run_mv_review(mv_bytes, supporting_bytes, ref_no, client_name, esp_name, mv_
                 "na":      sum(1 for it in sheet2_items if it.get("status") == "NA"),
             },
             "sheet3": {
-                "total":   len(sheet3_items),
-                "app":     sum(1 for it in sheet3_items if it.get("status") == "APP"),
-                "ir":      sum(1 for it in sheet3_items if it.get("status") == "IR"),
-                "na":      sum(1 for it in sheet3_items if it.get("status") == "NA"),
+                "total":   len(sheet3_all),
+                "app":     sum(1 for it in sheet3_all if it.get("status") == "APP"),
+                "ir":      sum(1 for it in sheet3_all if it.get("status") == "IR"),
+                "na":      sum(1 for it in sheet3_all if it.get("status") == "NA"),
             },
         }
         logging.info("Hybrid review complete: Sheet 2 (Python) %d items, Sheet 3 (AI) %d items.",

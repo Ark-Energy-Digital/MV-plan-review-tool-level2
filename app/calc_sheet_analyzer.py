@@ -140,21 +140,42 @@ def analyze_calc_sheet(excel_bytes: bytes) -> dict:
         }
 
     # ── 2.1  Regression model sheet ────────────────────────────────────────────
+    # Must be a SEPARATE, dedicated sheet — not the intro sheet or main calc sheet.
     reg_keywords = ["regression", "r²", "r2", "r-squared", "r square", "slope", "intercept",
                     "coefficient", "correlation", "ols"]
-    reg_matches = [s for s in sheets if _has_keywords(s["text"] + " " + s["name_lc"], reg_keywords)]
+    excluded_names = set()
+    if sheets:
+        excluded_names.add(sheets[0]["name_lc"])   # intro sheet (0.1)
+    if best:
+        excluded_names.add(best["name_lc"])         # main calc sheet (1.1)
+    reg_matches = [
+        s for s in sheets
+        if s["name_lc"] not in excluded_names
+        and _has_keywords(s["text"] + " " + s["name_lc"], reg_keywords)
+    ]
     if reg_matches:
         names = ", ".join(f"'{s['name']}'" for s in reg_matches)
         results["2.1"] = {
             "included": "Yes", "status": "APP",
-            "comment": f"Confirmed. Regression model sheet(s) identified: {names}.",
+            "comment": f"Confirmed. Dedicated regression model sheet(s) identified: {names}.",
         }
     else:
-        results["2.1"] = {
-            "included": "No", "status": "NA",
-            "comment": "No regression model sheet was identified. If regression is used as the routine "
-                       "adjustment model, ESP shall include a dedicated regression sheet per the M&V Plan.",
-        }
+        # Check if regression keywords exist but only on non-dedicated sheets
+        any_reg = [s for s in sheets if _has_keywords(s["text"] + " " + s["name_lc"], reg_keywords)]
+        if any_reg:
+            names = ", ".join(f"'{s['name']}'" for s in any_reg)
+            results["2.1"] = {
+                "included": "Partial", "status": "IR",
+                "comment": f"Regression content was found within '{any_reg[0]['name']}' but not on a "
+                           f"separate dedicated sheet. ESP shall include the regression model on its own "
+                           f"separate sheet as per the M&V Plan.",
+            }
+        else:
+            results["2.1"] = {
+                "included": "No", "status": "NA",
+                "comment": "No regression model sheet was identified. If regression is used as the routine "
+                           "adjustment model, ESP shall include a dedicated separate regression sheet per the M&V Plan.",
+            }
 
     # ── 3.1  15-minute interval data sheet ─────────────────────────────────────
     interval_keywords = ["15-min", "15 min", "15min", "interval", "15-minute", "15 minute"]
@@ -253,7 +274,7 @@ def analyze_calc_sheet(excel_bytes: bytes) -> dict:
         results["5.2"] = {
             "included": "Partial", "status": "IR",
             "comment": f"Only one non-routine sheet found ('{s['name']}'). ESP shall include a separate "
-                       f"sheet listing all non-routine events (date, description, and impact).",
+                       f"operational incident log sheet listing all non-routine events.",
         }
     else:
         results["5.1"] = {
@@ -263,7 +284,7 @@ def analyze_calc_sheet(excel_bytes: bytes) -> dict:
         }
         results["5.2"] = {
             "included": "No", "status": "NA",
-            "comment": "No non-routine events list sheet was identified. ESP shall include a dedicated "
+            "comment": "No operational incident log sheet was identified. ESP shall include a dedicated "
                        "sheet listing all non-routine events.",
         }
 

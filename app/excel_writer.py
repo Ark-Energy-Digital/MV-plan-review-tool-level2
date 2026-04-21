@@ -11,9 +11,10 @@ Columns written (1-based):
   J  col 10 = Consultant's Comments Round 1
 
 Colour coding:
-  Yes  / Approved     -> bg #00B050  font #FFFFFF  bold  centered
-  No   / Not Approved -> bg #FF0000  font #FFFFFF  bold  centered
-  Partial / Incomplete-> bg #FFFF00  font #000000  bold  centered
+  Yes / APP -> bg #00B050  font #FFFFFF  bold  centered
+  Yes / AAN -> bg #00B0F0  font #FFFFFF  bold  centered
+  No  / NA  -> bg #FF0000  font #FFFFFF  bold  centered
+  Partial / IR -> bg #FFFF00  font #000000  bold  centered
 
   Comment non-empty   -> bg #FFFF99  font #000000  wrap  top-aligned
   Comment empty       -> bg #FFFFFF
@@ -27,6 +28,7 @@ from datetime import date
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
 COL_SN      = 2   # B
@@ -47,29 +49,22 @@ INCLUDED_STYLES = {
 }
 
 STATUS_STYLES = {
-    "Approved":     {"bg": "00B050", "fc": "FFFFFF"},
-    "Not Approved": {"bg": "FF0000", "fc": "FFFFFF"},
-    "Incomplete":   {"bg": "FFFF00", "fc": "000000"},
+    "APP": {"bg": "00B050", "fc": "FFFFFF"},
+    "AAN": {"bg": "00B0F0", "fc": "FFFFFF"},
+    "NA":  {"bg": "FF0000", "fc": "FFFFFF"},
+    "IR":  {"bg": "FFFF00", "fc": "000000"},
 }
 
 COMMENT_BG = "FFFF99"
 COMMENT_FC = "000000"
 
-# ── Calc/Report sheet style maps (APP / IR / NA, font size 11) ───────────────
-CALC_FONT_SIZE = 11
+# ── Calc/Report sheet style maps — same colours and font as Sheet 1 ──────────
+CALC_FONT_SIZE = FONT_SIZE   # Trebuchet MS 10, consistent with Sheet 1
 CALC_BORDER_COLOR = "BFBFBF"
 
-CALC_INCLUDED_STYLES = {
-    "Yes":     {"bg": "C6EFCE", "fc": "375623"},
-    "No":      {"bg": "FFC7CE", "fc": "9C0006"},
-    "Partial": {"bg": "FFEB9C", "fc": "9C6500"},
-}
+CALC_INCLUDED_STYLES = INCLUDED_STYLES   # identical to Sheet 1
 
-CALC_STATUS_STYLES = {
-    "APP": {"bg": "C6EFCE", "fc": "375623"},
-    "IR":  {"bg": "FFEB9C", "fc": "9C6500"},
-    "NA":  {"bg": "FFC7CE", "fc": "9C0006"},
-}
+CALC_STATUS_STYLES = STATUS_STYLES       # identical to Sheet 1 (APP/AAN/NA/IR)
 
 
 def _make_border() -> Border:
@@ -103,6 +98,117 @@ def _is_section_header(value) -> bool:
         return f == int(f) and "." not in s
     except (ValueError, TypeError):
         return False  # unparseable as float → multi-part SN like "6.3.1", treat as question row
+
+
+def _is_integer_section(value) -> bool:
+    """True only for whole-integer section numbers like 0, 1, 2 … 17 (not empty/None)."""
+    if value is None:
+        return False
+    s = str(value).strip()
+    if not s:
+        return False
+    try:
+        f = float(s)
+        return f == int(f) and "." not in s
+    except (ValueError, TypeError):
+        return False
+
+
+def _write_section_rollups(ws, review_by_sn: dict) -> None:
+    """
+    Write rollup Included / Active Status to every section / sub-section header
+    row (integer headers like 1, 2 … AND sub-section headers like 6.3, 6.4)
+    based solely on the statuses of the question rows beneath them.
+    No AI involvement — purely computed from sub-question results.
+
+    A row is treated as a rollup header if:
+      • Its SN is a whole integer (0, 1, 2 … 17), OR
+      • Any other SN in the sheet starts with that SN + "." (e.g. 6.3 because
+        6.3.1 exists).
+
+    Rollup rules (same for all header types):
+      APP     — every sub-question is APP
+      NA      — majority (> 50 %) of sub-questions are NA
+      IR      — majority (> 50 %) of sub-questions are IR
+      IR      — mixed / tied (no clear majority)
+
+    Included mirrors status: Yes → APP, No → NA, Partial → IR.
+    No comment is written to section header rows.
+    """
+    border = Border(
+        left=Side(style="thin", color=BORDER_COLOR),
+        right=Side(style="thin", color=BORDER_COLOR),
+        top=Side(style="thin", color=BORDER_COLOR),
+        bottom=Side(style="thin", color=BORDER_COLOR),
+    )
+
+    # Pre-scan: collect every non-blank SN string from column B
+    sn_positions: list[tuple[int, str]] = []
+    for row_idx in range(DATA_START, ws.max_row + 1):
+        raw = ws.cell(row=row_idx, column=COL_SN).value
+        if raw is not None:
+            s = str(raw).strip()
+            if s:
+                sn_positions.append((row_idx, s))
+
+    sn_set = {s for _, s in sn_positions}
+
+    def is_rollup_header(s: str) -> bool:
+        """True if s is an integer section or has child SNs (sub-section header)."""
+        if _is_integer_section(s):
+            return True
+        return any(other.startswith(s + ".") for other in sn_set)
+
+    # For each rollup header collect the statuses of its leaf questions
+    # (questions that start with header + "." and are NOT themselves headers)
+    section_statuses: dict[int, list] = {}
+    for row_idx, sn in sn_positions:
+        if not is_rollup_header(sn):
+            continue
+        prefix = sn + "."
+        statuses = [
+            review_by_sn[sub].get("status", "")
+            for _, sub in sn_positions
+            if sub.startswith(prefix) and not is_rollup_header(sub) and sub in review_by_sn
+        ]
+        section_statuses[row_idx] = statuses
+
+    # Compute and write rollup for each header row
+    for row_idx, statuses in section_statuses.items():
+        if not statuses:
+            continue
+
+        total = len(statuses)
+        n_app = statuses.count("APP")
+        n_na  = statuses.count("NA")
+        n_ir  = statuses.count("IR")
+
+        if n_app == total:
+            rollup = "APP"
+        elif n_na > total / 2:
+            rollup = "NA"
+        elif n_ir > total / 2:
+            rollup = "IR"
+        else:
+            rollup = "NA" if n_na >= n_ir else "IR"
+
+        included = {"APP": "Yes", "NA": "No", "IR": "Partial"}.get(rollup, "Partial")
+
+        inc_s = INCLUDED_STYLES[included]
+        cell = ws.cell(row=row_idx, column=COL_INCL)
+        cell.value = included
+        cell.font = Font(name=FONT_NAME, size=FONT_SIZE, color=inc_s["fc"], bold=True)
+        cell.fill = _make_fill(inc_s["bg"])
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+
+        st_s = STATUS_STYLES[rollup]
+        cell = ws.cell(row=row_idx, column=COL_STATUS)
+        cell.value = rollup
+        cell.font = Font(name=FONT_NAME, size=FONT_SIZE, color=st_s["fc"], bold=True)
+        cell.fill = _make_fill(st_s["bg"])
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
 
 
 def _build_regression_comment(regression_results: list) -> str:
@@ -281,6 +387,9 @@ def _write_calc_sheet(ws, review_by_sn: dict,
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
         cell.border = border
 
+    # Section header rollups
+    _write_section_rollups(ws, review_by_sn)
+
 
 def write_review(template_bytes: bytes, review_by_sn: dict,
                  ref_no: str = "", client_name: str = "", esp_name: str = "",
@@ -312,14 +421,14 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
     # openpyxl cannot round-trip cleanly.
     wb._external_links.clear()
 
-    # Remove named ranges that reference external workbooks (contain "[")
-    # — they become invalid once external links are cleared.
-    broken = [
-        name for name in wb.defined_names
-        if "[" in (wb.defined_names[name].attr_text or "")
-    ]
-    for name in broken:
-        del wb.defined_names[name]
+    # Clear ALL named ranges — openpyxl 3.1 cannot reliably round-trip named
+    # ranges from complex templates (external refs, local sheet IDs, print
+    # areas), which causes Excel to show a recovery dialog on open.  Named
+    # ranges are not used by any downstream code so dropping them is safe.
+    wb.defined_names.clear()
+    for sheet in wb.worksheets:
+        if hasattr(sheet, "defined_names") and sheet.defined_names:
+            sheet.defined_names.clear()
 
     for sheet in wb.worksheets:
         sheet._charts.clear()
@@ -373,18 +482,18 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         cell.value = today_str
 
     # If any EEM's computed regression stats differ from those reported in the
-    # M&V plan, SN 6.3.6 must be "Not Approved" regardless of the AI verdict.
+    # M&V plan, SN 6.3.6 must be "NA" regardless of the AI verdict.
     regression_mismatch = any(
         res.get("stats_mismatch") for res in (regression_results or [])
     )
 
-    # Round 1 Assessment (col F=6): Approved only if every question is Approved
+    # Round 1 Assessment (col F=6): APP only if every question is APP
     # and no regression mismatch was detected.
     all_approved = (
-        all(item.get("status") == "Approved" for item in review_by_sn.values())
+        all(item.get("status") == "APP" for item in review_by_sn.values())
         and not regression_mismatch
     )
-    assessment = "Approved" if all_approved else "Not Approved"
+    assessment = "APP" if all_approved else "NA"
     assess_s = STATUS_STYLES[assessment]
     _style_cell(
         ws.cell(row=15, column=6),
@@ -409,9 +518,9 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         status   = item.get("status", "")
         comment  = item.get("comment", "") or ""
 
-        # If computed regression stats differ from reported, force Not Approved
+        # If computed regression stats differ from reported, force NA
         if sn == "6.3.6" and regression_mismatch:
-            status = "Not Approved"
+            status = "NA"
 
         # Append Python regression verification to the 6.3.6 comment
         if sn == "6.3.6":
@@ -455,6 +564,24 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
                 "", bg="FFFFFF", fc=COMMENT_FC,
                 wrap=True, align="left"
             )
+
+    # ── Sheet 1 — Section header rollups ────────────────────────────────────
+    _write_section_rollups(ws, review_by_sn)
+
+    # ── Sheet 1 — Active Status dropdown (col I, data rows) ─────────────────
+    # Remove any existing validation on col I so the new one takes precedence.
+    ws.data_validations.dataValidation = [
+        dv for dv in ws.data_validations.dataValidation
+        if not any(str(r).startswith("I") for r in dv.sqref.ranges)
+    ]
+    dv_status = DataValidation(
+        type="list",
+        formula1='"APP,AAN,NA,IR"',
+        allow_blank=True,
+        showDropDown=False,
+    )
+    dv_status.sqref = f"I{DATA_START}:I{ws.max_row + 50}"
+    ws.add_data_validation(dv_status)
 
     # ── Sheets 2 & 3 — M&V Calculations and Sample M&V Reports ──────────────
     if calc_review_sheet2 and "2. M&V Calculations" in wb.sheetnames:
