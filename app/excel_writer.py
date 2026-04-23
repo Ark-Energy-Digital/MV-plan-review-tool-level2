@@ -517,9 +517,8 @@ def write_review(template_bytes: bytes, review_by_sn: dict,
         cp.cell(row=12, column=2).value = today_str
         if esp_name:
             cp.cell(row=13, column=2).value = esp_name
-        # Date of review (col C), Open/Closed (col D), Date of Last Status (col F)
+        # Open/Closed (col D), Date of Last Status (col F) — col C (Item names) left as-is
         for row in (16, 17, 18):
-            cp.cell(row=row, column=3).value = today_str
             cp.cell(row=row, column=4).value = "Open"
             cp.cell(row=row, column=6).value = today_str
 
