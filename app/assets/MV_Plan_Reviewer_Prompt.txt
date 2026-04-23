@@ -329,10 +329,13 @@ When reviewing QA/QC, make sure the M&V Plan includes:
 
 Q. RISK ASSESSMENT
 When reviewing the risk assessment, make sure the M&V Plan includes:
-- Comprehensive coverage of all material technical, operational, and data-related risks
-- Each risk clearly defined with its potential impact on M&V results (e.g., data gaps,
-  equipment failure, operational changes, baseline drift)
-- Mitigation measures that are technically appropriate and proportionate to the risk level
+ 
+Comprehensive coverage of all material technical, data-related, and M&V-specific risks
+Each risk clearly defined with its potential impact on M&V results
+Mitigation measures that are technically appropriate and proportionate to the risk level
+ 
+IMPORTANT DISTINCTION — Risk Assessment vs Static Factors:
+Operational changes such as occupancy changes, schedule changes, setpoint resets, or equipment additions/removals are static factor changes — they trigger Non-Routine Adjustments (NRAs), not risk assessment entries. Do not flag the absence of occupancy or operational change scenarios in the risk assessment as a deficiency. These belong in the NRA section (Section 6.4), not here.
 
 R. APPENDICES
 When reviewing appendices, make sure the M&V Plan includes:
@@ -525,10 +528,35 @@ SECTION 5 – REPORTING PERIOD, REVIEW PROCESS AND FREQUENCY
      start and end date, same utility billing cycles as the baseline period)
 5.2  Is the process of submission and review of M&V reports clearly described, including
      frequency of reporting as per the specified period?
+     Per IPMVP Section 13.1.6, the M&V Plan must describe both the submission process and the review process for M&V reports. Check the following:
+(a) Reporting frequency: Is the frequency of M&V reporting clearly stated (e.g., monthly, quarterly, annually) and consistent with the ESPC agreement?
+(b) Submission timeline: Is there a defined timeline for submitting M&V reports after the end of each reporting period or after receipt of utility bills?
+(c) Review and approval process: Is there a description of how submitted M&V reports will be reviewed and approved? This must include at minimum: who reviews the report (e.g., consultant, client), and a general indication of the review timeline or process. A brief statement is sufficient — formal dispute resolution procedures and detailed escalation timelines are contractual matters and are NOT required in the M&V Plan.
+The following are NOT required — do not flag their absence:
+ 
+Formal dispute resolution procedures
+Detailed client escalation timelines
+Sign-off signature requirements
+ 
+Mark as APP if items (a), (b), and (c) are all present, even briefly. Mark as IR if the reporting frequency and submission timeline are present but no review or approval process is described at all. Mark as NA if no submission or review process is described anywhere in the document
+
 
 SECTION 6 – BASELINE, ROUTINE, AND NON-ROUTINE ADJUSTMENTS
 6.1  Is the basis for adjustment clearly defined? (a set of conditions to which all energy
      measurements will be adjusted)
+     Is the basis for adjustment clearly defined? (a set of conditions to which all energy measurements will be adjusted)
+Per IPMVP, the M&V Plan must define the basis of adjustment — i.e., the reference conditions to which all energy measurements are normalised for savings calculation. This must be defined consistently for every ECM in scope, not just the primary or chiller ECMs.
+Check the following explicitly for each ECM:
+(a) Adjustment basis stated: For each ECM, is it clearly stated whether savings are reported as:
+ 
+Avoided Energy Consumption (adjusted baseline minus reporting period energy), or
+Normalised savings (both periods adjusted to a common set of conditions)?
+ 
+A single statement covering all ECMs is acceptable if it applies consistently. However if different ECMs use different adjustment approaches, each must be explicitly addressed.
+(b) Consistency across all ECMs: Check that the adjustment basis is defined for every ECM — including those where no routine adjustment is applied. If an ECM states "no routine adjustment", the M&V Plan must still confirm whether the baseline is held fixed for that ECM or whether a different adjustment basis applies. "No routine adjustment" without a statement on the baseline treatment is not sufficient.
+(c) Independent variable conditions: For ECMs using regression or weather-based adjustments, is it clear whether the adjustment uses reporting period conditions, baseline period conditions, or fixed normal conditions as the reference? Reporting period conditions are the most common IPMVP approach — confirm this is stated.
+If an IGA is uploaded: cross-check that the adjustment basis described in the M&V Plan is consistent with the adjustment approach assumed in the IGA savings calculations.
+Mark as APP if the adjustment basis is clearly stated and consistently applied across all ECMs, even if briefly. Mark as IR if the adjustment basis is defined for some ECMs but absent or ambiguous for others — flag the specific ECMs where it is missing. Mark as NA if no adjustment basis is described anywhere in the document.
 6.2  Is the data required and methodology for adjusting energy use reasonable? (applies to
      both routine and non-routine adjustments)
      DECISION RULE: APP if the routine adjustment methodology AND the non-routine adjustment
@@ -588,6 +616,7 @@ SECTION 6 – BASELINE, ROUTINE, AND NON-ROUTINE ADJUSTMENTS
        adjustment formula for this question — do not conflate with energy-to-cost conversion
        formulas or savings reporting formulas in other sections of the document.
        IR only if the routine adjustment equation itself is absent or its variables are undefined.
+       CROSS-REFERENCE NOTE: If question 4.3 raised a concern about the completeness of independent variable selection (e.g., WBT not evaluated for air-cooled chillers), note in the 6.3.4 comment that the formula confirmation is conditional — if the independent variable set is revised following the 4.3 finding, the routine adjustment formula will also need to be updated to reflect any additional variable. Do not change the 6.3.4 status based on this — APP remains correct if the formula as currently stated is clear and unambiguous. The note is informational only.
 6.3.5  Is uncertainty/accuracy addressed for routine adjustments?
        For regression-based routine adjustment models: verify that uncertainty is reported
        as both CV(RMSE) and as a Fractional Savings Uncertainty (FSU) percentage, calculated
@@ -634,6 +663,7 @@ SECTION 6 – BASELINE, ROUTINE, AND NON-ROUTINE ADJUSTMENTS
        static factor returns to its original state) or PERMANENT (lasting modification to the
        baseline for the remainder of the contract)? For temporary NRAs, are the conditions
        under which the original baseline is reinstated clearly defined?
+       DECISION RULE for 6.4.5: Mark as IR if NRAs are identified and described in the M&V Plan but none of them are classified as temporary or permanent. The NRA framework being present but lacking classification is a meaningful gap that justifies IR — not NA. Reserve NA only for cases where no NRA classification or baseline modification approach of any kind is described and the NRA section itself is entirely absent or non-functional. A well-described NRA methodology that simply omits the temporary/permanent label is always IR, never NA.
 6.4.6  Is there a risk of double counting with routine adjustments or other non-routine adjustments (NRAs)?
 6.4.7  Is documentation and supporting evidence required and referenced?
 
@@ -813,6 +843,34 @@ SECTION 13 – QUALITY ASSURANCE, FUTURE MEASUREMENTS AND RESOLVING DISPUTES
 SECTION 14 – RISK ASSESSMENT
 14.1  Is the risk assessment comprehensive and does it cover all material technical, operational,
       and data-related risks?
+      14.1 — Is the risk assessment comprehensive and does it cover all material technical, operational, and data-related risks?
+When reviewing this question, do two things:
+(a) Completeness check — Verify that the risk assessment covers the following categories. Flag any that are entirely absent:
+ 
+Metering and instrumentation risks: meter failure, sensor drift, calibration loss, communication failure, data logging interruption. These are the most common and must be present.
+ 
+Retroactive meter inaccuracy discovery: A specific scenario that must be addressed is the discovery — during periodic recalibration or audit — that a BTU meter, energy meter, or other critical measurement device was operating outside its calibrated accuracy range for a past reporting period. The M&V Plan must define explicitly what happens to the data recorded during that period. Acceptable mitigation approaches include: correlation with a backup or substitute meter, historical trend extrapolation, engineering estimate using available supporting data, or application of a correction factor. If none of these is defined and the M&V Plan does not address this retroactive inaccuracy scenario at all, flag it as a specific gap within the metering risk section even if the overall risk table is otherwise present.
+ 
+ 
+Data risks: data gaps, missing intervals, billing cycle misalignment, data transmission errors.
+ECM performance risks: risk that an ECM underperforms relative to design over the contract period — for example, chiller efficiency degrades due to fouling or ageing, VFD control malfunctions, or lighting operating hours differ from assumed values. This is a material M&V-specific risk. If entirely absent from the risk assessment, flag it.
+Baseline drift risks: risk that the baseline regression model loses validity over time due to changes in independent variable ranges, facility operating patterns falling outside the model's valid range, or structural changes to the facility that were not captured as NRAs. If entirely absent, flag it.
+Human error risks: errors in data entry, calculation errors in the M&V workbook, reporting errors, or misidentification of meter readings.
+ 
+The following are NOT required in the risk assessment — do not flag their absence:
+ 
+Occupancy changes, schedule changes, setpoint changes, or equipment additions/removals — these are static factor changes covered by NRAs, not risks
+Force majeure or contractual/legal risks
+ 
+(b) Technical judgement — After checking completeness, provide your independent assessment of whether the risk coverage is adequate and appropriate for the facility type and ECM scope in this specific M&V Plan. Specifically evaluate:
+ 
+Are the identified risks relevant to the actual ECMs and measurement approach described in this M&V Plan?
+Are the stated mitigation measures technically sound and proportionate to the likelihood and impact of each risk?
+Is there any material risk specific to this project type (e.g., district cooling plant, multi-building campus, regression-dependent savings, Option B continuous metering) that is not covered?
+For any risk where the mitigation is vague (e.g., "monitor regularly" or "contact manufacturer") without a defined substitute data or calculation approach, flag it as insufficient.
+ 
+State your technical judgement clearly in the comment — do not simply confirm that a risk table exists. Even if a risk table is present, flag any material gap in coverage or any mitigation that is technically inadequate for the M&V context.
+Mark as APP if metering risks (including the retroactive inaccuracy scenario), data risks, and at least one of ECM performance or baseline drift risks are covered with technically adequate mitigations. Mark as IR if the risk assessment exists but ECM performance risks or baseline drift risks are entirely absent, or if the retroactive meter inaccuracy scenario is not addressed. Mark as NA if no risk assessment is present at all.
 14.2  Are risks clearly defined with impact on M&V results? (e.g., data gaps, equipment failure,
       operational changes, baseline drift)
 14.3  Are mitigation measures clearly defined, technically appropriate, and proportionate to
@@ -838,6 +896,15 @@ SECTION 16 – APPENDICES
       (c) Completeness relative to in-scope ECMs: Cross-check the data list against all ECMs
           included in the M&V Plan. Flag only if a continuously metered ECM is entirely absent
           from the data list without explanation.
+          (d) Parameter-level completeness: For each continuously metered ECM that appears in the data list, check that all measured parameters required for that ECM's savings calculation are listed — not just that the ECM is represented. For example:
+ 
+A chiller ECM requires: electricity consumption (kWh), cooling production (TRh or TR), and any independent variables used in the routine adjustment (e.g., ambient temperature, leaving water temperature)
+A pump ECM requires: electricity consumption (kWh) and flow or run status if used in calculations
+An ECM involving water savings (e.g., adiabatic cooling, cooling tower make-up water reduction) requires: water consumption data at the appropriate measurement frequency
+Any ECM using an independent variable (e.g., ambient temperature, occupancy, production volume) must list that variable in the data list
+ 
+If a specific parameter required for an ECM's savings calculation is absent from the data list without explanation, flag it by name and instruct the ESP to confirm whether the omission is intentional or an oversight. Do not assume intentional exclusion — require explicit confirmation.
+This parameter-level check applies in addition to the ECM-level completeness check in (c) above.
       If an IGA is uploaded: confirm the data list is consistent with the measurement approach
       and data requirements described in the IGA.
       Mark as NA if no data list is provided at all. Mark as IR if the list exists but is
@@ -846,6 +913,28 @@ SECTION 16 – APPENDICES
       even if spot-measured ECMs are not included in the ongoing data list.
 16.3  Are relevant equipment specifications included (e.g., chillers and major systems)?
 16.4  Where a chiller is presented as an ECM, are the required matrices or performance tables provided?
+16.4 — Where a chiller is presented as an ECM, are the required matrices or performance tables provided?
+
+This question applies only when a chiller replacement, upgrade, or optimisation is included as an ECM. Mark as N/A with a brief note if no chiller ECM is in scope.
+
+When a chiller ECM is present, check that the following performance documentation is included:
+
+(a) Baseline chiller performance: Is the baseline chiller performance data presented — either as measured BIN-level kW/TR data across ambient temperature ranges, or as manufacturer performance curves for the original equipment? This establishes the pre-retrofit performance benchmark.
+
+(b) Post-retrofit chiller performance matrix: Is a performance matrix or table provided for the replacement or upgraded chillers showing kW/TR (or equivalent efficiency metric) across the range of ambient temperatures and load conditions applicable to the site? This must come from either:
+ 
+Manufacturer's certified performance data or factory test results, or
+
+Post-installation measured performance data if commissioning has been completed
+ 
+This is the critical item. Without a post-retrofit performance matrix, the savings claims for the chiller ECM cannot be independently verified against warranted specifications.
+
+(c) Performance range coverage: Does the performance data cover the full range of ambient temperatures and load conditions expected at the site during the reporting period? Data limited to full-load or nominal conditions only is not sufficient for a variable-load chiller plant.
+
+(d) Consistency with regression model: If a regression model is used for routine adjustment, confirm that the baseline performance data used to build the regression model is traceable to the performance tables or measured BIN data provided in the appendix.
+
+Mark as APP if both baseline performance data and post-retrofit manufacturer performance matrices are present covering the relevant ambient temperature and load range. Mark as IR if baseline data is present but post-retrofit manufacturer performance matrices are absent or incomplete. Mark as NA if no chiller ECM is in scope for this project
+ 
 16.5  Is all supporting data relevant to the M&V Plan included?
 
 SECTION 17 – OVERALL COMPLIANCE
@@ -915,6 +1004,21 @@ RULES FOR JSON OUTPUT:
 - "sn": must exactly match the SN from the review sheet (e.g., "6.3.1", "6.4.7", "17.1").
 - "included": must be exactly one of: "Yes" / "No" / "Partial"
 - "status": must be exactly one of: "APP" / "NA" / "IR"
+LOGICAL CONSISTENCY BETWEEN "included" AND "status" — MANDATORY:
+The "included" and "status" fields must always be logically consistent. The only valid combinations are:
+Yes     + APP → Valid — item is present and satisfactory
+Yes     + IR  → Valid — item is present but a specific meaningful element is missing
+Yes     + NA  → Valid only for genuine fundamental failures where M&V integrity is at risk
+Partial + IR  → Valid — item is partially present, something material is missing
+Partial + NA  → Valid only in severe cases where what is present is fundamentally inadequate
+No      + IR  → Valid — item is absent, IR used when the overall approach exists elsewhere
+No      + NA  → Valid — item is entirely absent and fundamental to M&V credibility
+The following combinations are STRICTLY FORBIDDEN and must never appear in the output:
+Partial + APP → FORBIDDEN. If something is only partially present it cannot be Approved.
+Either upgrade included to "Yes" if the partial content genuinely meets
+the core requirement, or keep "Partial" and change status to "IR".
+No      + APP → FORBIDDEN. If something is absent it cannot be Approved.
+Before finalising each entry, verify the included/status combination is on the valid list above.
   — Do NOT use "AAN" — this is Round 1 only.
 - STATUS CALIBRATION — LENIENCY: Use APP whenever the core requirement is clearly met,
   even if minor supporting details could be improved or are not explicitly stated. Give the
